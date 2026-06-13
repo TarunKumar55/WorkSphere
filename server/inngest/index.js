@@ -17,8 +17,8 @@ const syncUserCreation = inngest.createFunction(
       data: {
         id: data.id,
         email: data?.email_addresses[0]?.email_address,
-        name: data?.first_name + " " + data?.last_name,
-        image: data?.image_url,
+        name: `${data?.first_name || ""} ${data?.last_name || ""}`.trim(),
+        image: data?.image_url || "",
       },
     });
   },
@@ -56,12 +56,46 @@ const syncUserUpdation = inngest.createFunction(
       },
       data: {
         email: data?.email_addresses[0]?.email_address,
-        name: data?.first_name + " " + data?.last_name,
-        image: data?.image_url,
+        name: `${data?.first_name || ""} ${data?.last_name || ""}`.trim(),
+        image: data?.image_url || "",
+      },
+    });
+  },
+);
+
+// Inngest Function to save workspace data to db
+const syncWorkspaceCreation = inngest.createFunction(
+  {
+    id: "sync-workspace-from-clerk",
+    triggers: [{ event: "clerk/organization.created" }],
+  },
+  async ({ event }) => {
+    const { data } = event;
+
+    await prisma.workspace.create({
+      data: {
+        id: data.id,
+        name: data.name,
+        slug: data.slug,
+        ownerId: data.created_by,
+        image_url: data.image_url || "",
+      },
+    });
+
+    await prisma.workspaceMember.create({
+      data: {
+        userId: data.created_by,
+        workspaceId: data.id,
+        role: "ADMIN",
       },
     });
   },
 );
 
 // Export functions
-export const functions = [syncUserCreation, syncUserDeletion, syncUserUpdation];
+export const functions = [
+  syncUserCreation,
+  syncUserDeletion,
+  syncUserUpdation,
+  syncWorkspaceCreation,
+];
