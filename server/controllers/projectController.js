@@ -106,3 +106,37 @@ export const updateProject = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+export const addProjectMember = async (req, res) => {
+  try {
+    const { projectId } = req.params;
+    const { userId } = req.body;
+
+    await prisma.projectMember.create({
+      data: {
+        projectId,
+        userId,
+      },
+    });
+
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        members: {
+          include: {
+            user: true,
+          },
+        },
+        tasks: {
+          include: {
+            assignee: true,
+            comments: true,
+          },
+        },
+      },
+    });
+
+    res.json({ project });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
