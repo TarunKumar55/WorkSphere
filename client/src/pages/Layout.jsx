@@ -6,12 +6,17 @@ import { useDispatch, useSelector } from "react-redux";
 import { loadTheme } from "../features/themeSlice";
 import { setLoading, setWorkspaces } from "../features/workspaceSlice";
 import { Loader2Icon } from "lucide-react";
-import { useUser, useAuth, SignIn } from "@clerk/clerk-react";
+import {
+  useUser,
+  useAuth,
+  SignIn,
+  CreateOrganization,
+} from "@clerk/clerk-react";
 import api from "../configs/api";
 
 const Layout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const { loading } = useSelector((state) => state.workspace);
+  const { loading, workspaces } = useSelector((state) => state.workspace);
   const dispatch = useDispatch();
   const { user, isLoaded } = useUser();
   const { getToken } = useAuth();
@@ -22,7 +27,7 @@ const Layout = () => {
 
   useEffect(() => {
     const fetchWorkspaces = async () => {
-      if (!user) return;
+      if (!isLoaded || !user || workspaces.length > 0) return;
 
       try {
         dispatch(setLoading(true));
@@ -37,14 +42,14 @@ const Layout = () => {
 
         dispatch(setWorkspaces(data.workspaces || []));
       } catch (error) {
-        console.error(error);
+        console.error("workspace api error", error);
       } finally {
         dispatch(setLoading(false));
       }
     };
 
     fetchWorkspaces();
-  }, [user, getToken, dispatch]);
+  }, [isLoaded, user, workspaces.length, getToken, dispatch]);
 
   if (!isLoaded) {
     return (
@@ -62,12 +67,21 @@ const Layout = () => {
     );
   }
 
-  if (loading)
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-screen bg-white dark:bg-zinc-950">
         <Loader2Icon className="size-7 text-blue-500 animate-spin" />
       </div>
     );
+  }
+
+  if (user && workspaces.length === 0) {
+    return (
+      <div className="min-h-screen flex justify-center items-center bg-white dark:bg-zinc-950">
+        <CreateOrganization />
+      </div>
+    );
+  }
 
   return (
     <div className="flex bg-white dark:bg-zinc-950 text-gray-900 dark:text-slate-100">
