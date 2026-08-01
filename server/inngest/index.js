@@ -13,8 +13,16 @@ const syncUserCreation = inngest.createFunction(
   async ({ event }) => {
     const { data } = event;
 
-    await prisma.user.create({
-      data: {
+    await prisma.user.upsert({
+      where: {
+        id: data.id,
+      },
+      update: {
+        email: data?.email_addresses[0]?.email_address,
+        name: `${data?.first_name || ""} ${data?.last_name || ""}`.trim(),
+        image: data?.image_url || "",
+      },
+      create: {
         id: data.id,
         email: data?.email_addresses[0]?.email_address,
         name: `${data?.first_name || ""} ${data?.last_name || ""}`.trim(),
@@ -72,8 +80,16 @@ const syncWorkspaceCreation = inngest.createFunction(
   async ({ event }) => {
     const { data } = event;
 
-    await prisma.workspace.create({
-      data: {
+    await prisma.workspace.upsert({
+      where: {
+        id: data.id,
+      },
+      update: {
+        name: data.name,
+        slug: data.slug,
+        image_url: data.image_url || "",
+      },
+      create: {
         id: data.id,
         name: data.name,
         slug: data.slug,
@@ -82,11 +98,48 @@ const syncWorkspaceCreation = inngest.createFunction(
       },
     });
 
-    await prisma.workspaceMember.create({
-      data: {
+    await prisma.workspaceMember.upsert({
+      where: {
+        userId_workspaceId: {
+          userId: data.created_by,
+          workspaceId: data.id,
+        },
+      },
+      update: {
+        role: "ADMIN",
+      },
+      create: {
         userId: data.created_by,
         workspaceId: data.id,
         role: "ADMIN",
+      },
+    });
+  },
+);
+
+// Inngest Function to save workspace member data to db
+const syncWorkspaceMemberCreation = inngest.createFunction(
+  {
+    id: "sync-workspace-member-from-clerk",
+    triggers: [{ event: "clerk/organizationInvitation.accepted" }],
+  },
+  async ({ event }) => {
+    const { data } = event;
+
+    await prisma.workspaceMember.upsert({
+      where: {
+        userId_workspaceId: {
+          userId: data.user_id,
+          workspaceId: data.organization_id,
+        },
+      },
+      update: {
+        role: String(data.role_name || "member").toUpperCase(),
+      },
+      create: {
+        userId: data.user_id,
+        workspaceId: data.organization_id,
+        role: String(data.role_name || "member").toUpperCase(),
       },
     });
   },
@@ -98,4 +151,5 @@ export const functions = [
   syncUserDeletion,
   syncUserUpdation,
   syncWorkspaceCreation,
+  syncWorkspaceMemberCreation,
 ];
